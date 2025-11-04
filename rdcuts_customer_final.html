@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RD Cuts Customer Booking</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:20px;display:flex;justify-content:center;}
+.card{background:#fff;padding:20px;border-radius:10px;max-width:700px;width:100%;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
+h1{text-align:center;margin-top:0;}
+.services{display:flex;justify-content:space-between;flex-wrap:wrap;margin-bottom:15px;}
+button.service{flex:1 1 48%; margin:5px 0; padding:12px; background:#222; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:16px;}
+button.service.selected{background:#0a7;font-weight:bold;}
+#calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:15px;}
+.day{padding:10px;text-align:center;border-radius:6px;cursor:pointer;background:#eee;}
+.day.closed{background:#ccc;cursor:not-allowed;}
+.day.full{background:#f99;cursor:not-allowed;}
+.day.selected{background:#0a7;color:#fff;font-weight:bold;}
+#slots{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px;}
+button.slot{flex:1 1 30%; padding:10px;border:none;border-radius:8px;background:#555;color:#fff;cursor:pointer;}
+button.slot.selected{background:#0a7;font-weight:bold;}
+button.slot.disabled{background:#ccc;color:#666;cursor:not-allowed;}
+label{display:block;margin-top:10px;}
+input{width:100%;padding:10px;margin-top:6px;border-radius:6px;border:1px solid #ccc;}
+.message{margin-top:12px;color:green;text-align:center;}
+</style>
+<script type="text/javascript" src="https://cdn.emailjs.com/dist/email.min.js"></script>
+<script type="text/javascript">
+(function(){ emailjs.init("x0PpzUCFbB-Cfddhh"); })();
+</script>
+</head>
+<body>
+<div class="card">
+<h1>RD Cuts</h1>
+<p style="text-align:center;color:#555;">29 Rockwall Drive, Craigieburn</p>
+<h3>Select Service</h3>
+<div class="services">
+  <button class="service" data-service="Haircut" data-price="25">$25 - Haircut</button>
+  <button class="service" data-service="Beard" data-price="5">$5 - Beard</button>
+  <button class="service" data-service="Haircut + Beard" data-price="30">$30 - Haircut + Beard</button>
+</div>
+<h3>Select Date</h3>
+<div id="calendar"></div>
+<div id="slots"></div>
+<form id="bookingForm">
+  <label>Full Name<input id="name" required></label>
+  <label>Email<input id="email" type="email" required></label>
+  <input type="hidden" id="service" required>
+  <input type="hidden" id="time" required>
+  <input type="hidden" id="date" required>
+  <button type="submit" style="margin-top:10px;">Book Now</button>
+</form>
+<p id="confirmation" class="message" style="display:none;">Booking submitted! ✅</p>
+</div>
+<script>
+function pad(n){return n<10?'0'+n:n;}
+function toMinutes(t){const [h,m]=t.split(':').map(Number);return h*60+m;}
+function toTime(m){return pad(Math.floor(m/60))+ ':' + pad(m%60);}
+function generateSlots(open,close){let slots=[]; for(let t=toMinutes(open);t<=toMinutes(close)-30;t+=30) slots.push(toTime(t)); return slots;}
+const services=document.querySelectorAll('.service');
+let selectedService='', selectedDate='', selectedTime='';
+services.forEach(btn=>{btn.addEventListener('click',()=>{services.forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); selectedService=btn.dataset.service; document.getElementById('service').value=selectedService;});});
+let availability = {}; 
+let bookings = JSON.parse(localStorage.getItem('rdcuts_bookings')||'[]');
+const calendar=document.getElementById('calendar');
+const slotsDiv=document.getElementById('slots');
+const now=new Date();
+let currentMonth=now.getMonth();
+let currentYear=now.getFullYear();
+function buildCalendar(year,month){
+  calendar.innerHTML='';
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  for(let i=0;i<firstDay;i++){const empty=document.createElement('div');calendar.appendChild(empty);}
+  for(let d=1;d<=daysInMonth;d++){
+    const dayDiv=document.createElement('div');dayDiv.className='day'; dayDiv.textContent=d;
+    const dateStr=year+'-'+pad(month+1)+'-'+pad(d);
+    const dayAvail=availability[dateStr]||{closed:false,open:'09:00',close:'18:00'};
+    const dayBookings=bookings.filter(b=>b.date===dateStr).map(b=>b.time);
+    const slots=generateSlots(dayAvail.open,dayAvail.close);
+    const fullyBooked=slots.every(s=>dayBookings.includes(s));
+    if(dayAvail.closed) dayDiv.classList.add('closed');
+    if(fullyBooked) dayDiv.classList.add('full');
+    if(!dayAvail.closed&&!fullyBooked){dayDiv.addEventListener('click',()=>selectDate(dateStr,dayDiv,dayAvail,dayBookings));}
+    calendar.appendChild(dayDiv);
+  }
+}
+function selectDate(dateStr,dayDiv,dayAvail,dayBookings){
+  selectedDate=dateStr;
+  document.getElementById('date').value=selectedDate;
+  document.querySelectorAll('.day').forEach(d=>d.classList.remove('selected'));
+  dayDiv.classList.add('selected');
+  slotsDiv.innerHTML='';
+  let slots=generateSlots(dayAvail.open,dayAvail.close);
+  slots=slots.map(s=>({time:s,disabled:dayBookings.includes(s)}));
+  slots.forEach(s=>{
+    const btn=document.createElement('button'); btn.textContent=s.time;
+    btn.className='slot'+(s.disabled?' disabled':'');
+    btn.disabled=s.disabled;
+    btn.addEventListener('click',()=>{document.querySelectorAll('.slot').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); selectedTime=s.time; document.getElementById('time').value=selectedTime;});
+    slotsDiv.appendChild(btn);
+  });
+}
+document.getElementById('bookingForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  const name=document.getElementById('name').value.trim();
+  const email=document.getElementById('email').value.trim();
+  const service=document.getElementById('service').value;
+  const time=document.getElementById('time').value;
+  const date=document.getElementById('date').value;
+  if(!name||!email||!service||!time||!date) return alert('Please fill all fields.');
+  bookings.push({name,email,service,date,time});
+  localStorage.setItem('rdcuts_bookings',JSON.stringify(bookings));
+  document.getElementById('confirmation').style.display='block';
+  emailjs.send('service_xxxx','template_xxxx',{name:name,email:email,service:service,date:date,time:time});
+  this.reset(); slotsDiv.innerHTML=''; selectedService=''; selectedTime=''; services.forEach(b=>b.classList.remove('selected'));
+  buildCalendar(currentYear,currentMonth);
+});
+buildCalendar(currentYear,currentMonth);
+</script>
+</body>
+</html>

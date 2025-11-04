@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RD Cuts Admin Panel</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:20px;display:flex;justify-content:center;}
+.card{background:#fff;padding:20px;border-radius:10px;max-width:900px;width:100%;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
+h1{text-align:center;margin-top:0;}
+table{width:100%;border-collapse:collapse;margin-top:15px;}
+th,td{border:1px solid #ccc;padding:10px;text-align:left;}
+th{background:#222;color:#fff;}
+input{padding:5px;border-radius:4px;border:1px solid #ccc;margin-top:4px;}
+button{padding:6px 12px;margin-top:6px;background:#222;color:#fff;border:none;border-radius:6px;cursor:pointer;}
+button:hover{background:#0a7;}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>RD Cuts Admin Panel</h1>
+<h3>Set Availability for the Year</h3>
+<label>Date<input type="date" id="adminDate"></label>
+<label>Open Time<input type="time" id="adminOpen" value="09:00"></label>
+<label>Close Time<input type="time" id="adminClose" value="18:00"></label>
+<label><input type="checkbox" id="adminClosed"> Closed</label>
+<button id="saveAvailability">Save Availability</button>
+<h3>All Bookings</h3>
+<table>
+<thead>
+<tr><th>Name</th><th>Email</th><th>Service</th><th>Date</th><th>Time</th></tr>
+</thead>
+<tbody id="bookingsTable"></tbody>
+</table>
+</div>
+<script>
+let bookings = JSON.parse(localStorage.getItem('rdcuts_bookings') || '[]');
+let availability = JSON.parse(localStorage.getItem('rdcuts_availability') || '{}');
+function renderBookings(){
+  const table=document.getElementById('bookingsTable');
+  table.innerHTML='';
+  bookings.forEach(b=>{
+    const row=document.createElement('tr');
+    row.innerHTML=`<td>${b.name}</td><td>${b.email}</td><td>${b.service}</td><td>${b.date}</td><td>${b.time}</td>`;
+    table.appendChild(row);
+  });
+}
+document.getElementById('saveAvailability').addEventListener('click',()=>{
+  const date=document.getElementById('adminDate').value;
+  const open=document.getElementById('adminOpen').value;
+  const close=document.getElementById('adminClose').value;
+  const closed=document.getElementById('adminClosed').checked;
+  if(!date){return alert('Select a date');}
+  availability[date]={open,close,closed};
+  localStorage.setItem('rdcuts_availability',JSON.stringify(availability));
+  alert('Availability saved');
+});
+renderBookings();
+</script>
+</body>
+</html>
